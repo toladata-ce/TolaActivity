@@ -118,3 +118,12 @@ Vary: Accept
         "tags": [],
         "public": false
     },
+    
+Status Codes
+------------
+
+-  **200** - Successful [``GET``, ``PATCH``, ``PUT``]
+-  **201** - Resource successfully created [``POST``\ ]
+-  **204** - Resouce successfully deleted [``DELETE``\ ]
+-  **403** - Permission denied to resource
+-  **404** - Resource was not found
