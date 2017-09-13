@@ -2,8 +2,9 @@ from django.db import models
 from tola.middleware import get_user
 from guardian.shortcuts import get_perms
 from rest_framework.exceptions import PermissionDenied
-from tola.settings import local
+from django.conf import settings
 
+import os
 class SecurityModel(models.Model):
     """
     Abstract Model to inherit security models from
@@ -13,9 +14,9 @@ class SecurityModel(models.Model):
 
     def __init__(self, *args, **kwargs):
         super(SecurityModel, self).__init__(*args, **kwargs)
-
         user = get_user()
-        if not local.DEBUG and user is not None:
+        print(str(user)+" tried to access "+str(self))
+        if not settings.DEBUG and user is not None:
             print(type(self), user, get_perms(user, self))
 
             need_perm = "view_"+str(self.__class__.__name__).lower()  # The permission necessary to access the current model
@@ -27,7 +28,8 @@ class SecurityModel(models.Model):
         edit_perm = "change_"+str(self.__class__.__name__).lower()
 
         user = get_user()
-        if not local.DEBUG and user is not None:
+        print(str(user)+" tried to save "+str(self))
+        if not settings.DEBUG and user is not None:
 
             perms = get_perms(user, self)
 
@@ -42,7 +44,8 @@ class SecurityModel(models.Model):
         delete_perm = "delete_"+str(self.__class__.__name__).lower()
 
         user = get_user()
-        if not local.DEBUG and user is not None:
+        print(str(user)+" tried to delete "+str(self))
+        if not settings.DEBUG and user is not None:
             perms = get_perms(user, self)
 
             if delete_perm not in perms:
