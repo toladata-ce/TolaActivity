@@ -9,6 +9,7 @@ from django.contrib.auth.models import User
 from oauth2_provider.models import Application
 
 # TODO Extend OAuth tests
+from tola.middleware import get_user, remove_user
 
 
 class OAuthTest(TestCase):
@@ -37,3 +38,4 @@ class OAuthTest(TestCase):
 
         self.assertContains(response, "value=\"CXGVOGFnTAt5cQW6m5AxbGrRq1lzKNSrou31dWm9\"")
         self.assertEqual(response.status_code, 200)
+        remove_user()

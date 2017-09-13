@@ -6,7 +6,7 @@ from rest_framework.exceptions import PermissionDenied
 
 _current_users = {}
 
-
+# TODO add test for thread safety
 def get_user():
     """
     Request independent method to retrieve current user 
@@ -17,6 +17,12 @@ def get_user():
     if thread not in _current_users:
         return None
     return _current_users[thread]
+
+
+def remove_user():
+    thread = current_thread()
+    if thread in _current_users:
+        del _current_users[thread]
 
 
 class TolaSecurityMiddleware(object):
