@@ -28,10 +28,13 @@ from workflow.models import (
     TolaUser as TolaUserM,
     WorkflowTeam as WorkflowTeamM,
     WorkflowLevel1 as WorkflowLevel1M,
+    WorkflowLevel1Sector as WorkflowLevel1SectorM,
     WorkflowLevel2 as WorkflowLevel2M,
     WorkflowLevel2Sort as WorkflowLevel2SortM,
+    Dashboard as DashboardM,
+    Widget as WidgetM,
 )
-from .user_models import User, Group
+from .django_models import User, Group, Site
 
 
 class Award(DjangoModelFactory):
@@ -59,6 +62,7 @@ class Budget(DjangoModelFactory):
 class Country(DjangoModelFactory):
     class Meta:
         model = CountryM
+        django_get_or_create = ('code',)
 
     country = 'Afghanistan'
     code = 'AF'
@@ -92,6 +96,37 @@ class SiteProfile(DjangoModelFactory):
 class TolaUser(DjangoModelFactory):
     class Meta:
         model = TolaUserM
+        django_get_or_create = ('user',)
+
+    user = SubFactory(User)
+    name = LazyAttribute(lambda o: o.user.first_name + " " + o.user.last_name)
+    organization = SubFactory(Organization)
+    position_description = 'Chief of Operations'
+    country = SubFactory(Country, country='Germany', code='DE')
+
+
+class Dashboard(DjangoModelFactory):
+    class Meta:
+        model = DashboardM
+        django_get_or_create = ('user',)
+
+    user = SubFactory(User)
+    name = "My crazy Dashboard"
+
+
+class Widget(DjangoModelFactory):
+    class Meta:
+        model = WidgetM
+        django_get_or_create = ('dashboard',)
+
+    dashboard = SubFactory(Dashboard)
+    name = "My Crazy Widget"
+
+
+class TolaUser(DjangoModelFactory):
+    class Meta:
+        model = TolaUserM
+        django_get_or_create = ('user',)
 
     user = SubFactory(User)
     name = LazyAttribute(lambda o: o.user.first_name + " " + o.user.last_name)
@@ -112,12 +147,17 @@ class WorkflowLevel1(DjangoModelFactory):
             # Simple build, do nothing.
             return
 
-        if extracted:
+        if type(extracted) is list:
             # A list of country were passed in, use them
             for country in extracted:
                 self.country.add(country)
         else:
             self.country.add(Country(country='Syria', code='SY'))
+
+
+class WorkflowLevel1Sector(DjangoModelFactory):
+    class Meta:
+        model = WorkflowLevel1SectorM
 
 
 class WorkflowTeam(DjangoModelFactory):
@@ -168,7 +208,7 @@ class Stakeholder(DjangoModelFactory):
             # Simple build, do nothing.
             return
 
-        if extracted:
+        if type(extracted) is list:
             # A list of workflowlevel1 were passed in, use them
             for workflowlevel1 in extracted:
                 self.workflowlevel1.add(workflowlevel1)
@@ -218,7 +258,7 @@ class Portfolio(DjangoModelFactory):
             # Simple build, do nothing.
             return
 
-        if extracted:
+        if type(extracted) is list:
             # A list of country were passed in, use them
             for country in extracted:
                 self.country.add(country)
@@ -247,7 +287,7 @@ class CodedField(DjangoModelFactory):
             # Simple build, do nothing.
             return
 
-        if extracted:
+        if type(extracted) is list:
             # A list of workflowlevel1 were passed in, use them
             for workflowlevel1 in extracted:
                 self.workflowlevel1.add(workflowlevel1)
@@ -283,6 +323,7 @@ class TolaSites(DjangoModelFactory):
         model = TolaSitesM
 
     name = 'TolaData'
+    site = SubFactory(Site)
 
 
 class WorkflowLevel2Sort(DjangoModelFactory):

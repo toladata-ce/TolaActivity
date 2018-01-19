@@ -16,7 +16,7 @@ files.
 Location of settings:
 
 * Development: `tola/settings/dev.py`
-* Test runner: `tola/settings/test.py`
+* Test runner: `tola/settings/test.py` and `tola/settings/test_pkg.py`
 * Staging/Production: `tola/settings/local.py`
 
 
@@ -49,6 +49,15 @@ To run the tests:
 docker-compose -f docker-compose-dev.yml run --entrypoint '/usr/bin/env' --rm web python manage.py test # --keepdb to run second time faster
 ```
 
+To run the package building tests, follow these steps:
+
+```bash
+docker-compose -f docker-compose-dev.yml run --entrypoint '/usr/bin/env' --rm web bash
+# Now inside the container
+pip freeze | grep -v "^-e" | xargs pip uninstall -y; pip uninstall -y social_auth_core; cat requirements.txt | grep "^Django==\|^psycopg2" | xargs pip install; pip install -r requirements-pkg.txt
+python manage.py test --tag=pkg --keepdb
+```
+
 To run the webserver with pdb support:
 
 ```bash
@@ -72,6 +81,32 @@ To connect to the database when the container is running:
 ```bash
 docker exec -it postgres psql -U root tola_activity
 ```
+
+If the database is empty, you may want to populate extra demo data to play
+around with Activity:
+
+```bash
+docker-compose -f docker-compose-dev.yml run --entrypoint '/usr/bin/env' --rm web python manage.py loadinitialdata  --demo
+```
+
+#### Issue with the local environment
+
+If you're getting an error in your local environment, it can be related to 
+the `social-core` library. To solve this issue you need to execute the 
+following step:
+
+- With the container running, go into it with this command:
+  
+  `docker exec -it web bash`
+  
+- Install the `social-core` lib again:
+
+  `pip install -e git://github.com/toladata/social-core#egg=social-core`
+
+- Now, restart the container.
+
+It should solve the problem!
+
 
 ## Deploy locally using virtualenv
 
@@ -139,6 +174,3 @@ Then set up the following environment variables in docker-compose-dev.yml:
 * `SOCIAL_AUTH_LOGIN_REDIRECT_URL=https://<ID>.ngrok.io`
 * `SOCIAL_AUTH_MICROSOFT_GRAPH_REDIRECT_URL=https://<ID>.ngrok.io/complete/microsoft-graph`
 * `TOLA_HOSTNAME=127.0.0.1,localhost,<ID>.ngrok.io`
-
-## Reset Migration Scripts
-If you are using a version of TolaActivity before we reset the migration scripts, you have to execute the script _reset_migration.sh_ in your environment.
