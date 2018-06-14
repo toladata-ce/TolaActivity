@@ -19,11 +19,7 @@ Location of settings:
 * Test runner: `tola/settings/test.py` and `tola/settings/test_pkg.py`
 * Staging/Production: `tola/settings/local.py`
 
-
-## Deploy changes in activity servers
-
-Once all your changes have been commited to the repo, and before pushing them, run:
-`. travis.sh`
+Check the documentation on setting up search functionality in `search/Readme.md`
 
 
 ## Deploy locally via Docker
@@ -54,7 +50,7 @@ To run the package building tests, follow these steps:
 ```bash
 docker-compose -f docker-compose-dev.yml run --entrypoint '/usr/bin/env' --rm web bash
 # Now inside the container
-pip freeze | grep -v "^-e" | xargs pip uninstall -y; pip uninstall -y social_auth_core; cat requirements.txt | grep "^Django==\|^psycopg2" | xargs pip install; pip install -r requirements-pkg.txt
+pip freeze | grep -v "^-e" | xargs pip uninstall -y; pip uninstall -y social_auth_core; cat requirements/base.txt | grep "^Django==\|^psycopg2" | xargs pip install; pip install -r requirements/pkg.txt
 python manage.py test --tag=pkg --keepdb
 ```
 
@@ -87,6 +83,13 @@ around with Activity:
 
 ```bash
 docker-compose -f docker-compose-dev.yml run --entrypoint '/usr/bin/env' --rm web python manage.py loadinitialdata  --demo
+```
+
+(Be careful using this, only on demo!) If the database is already populated and
+you want to restore the default data:
+
+```bash
+docker-compose -f docker-compose-dev.yml run --entrypoint '/usr/bin/env' --rm web python manage.py loadinitialdata  --restore
 ```
 
 #### Issue with the local environment
@@ -139,7 +142,7 @@ source venv/bin/activate
 Install requirements:
 
 ```bash
-pip install -r requirements-dev.txt
+pip install -r requirements/dev.txt
 ```
 
 Set up database:
@@ -154,23 +157,9 @@ Run the server:
 python manage.py runserver 0.0.0.0:8000
 ```
 
-## Development notes
+## Creating PRs and Issues
+The following templates were created to easy the way to create tickets and help the developer.
 
-### Setup a HTTPS development webserver to run Microsoft log in
-
-As Microsoft requires HTTPS endpoints to be set in their Application
-Registration Portal (https://apps.dev.microsoft.com), the easiest way to do it
-is registering an account in ngrok.com, installing the software and running
-both ngrok and Django development webserver at the same time.
-
-With the URL displayed by ngrok, set it up in the Microsoft Application
-Registration Portal like this:
-
-* *Platforms >> Web >> Redirect URLs*: `https://<ID>.ngrok.io/complete/microsoft-graph`
-* *Platforms >> Web >> Logout URL*: `https://<ID>.ngrok.io/accounts/logout`
-
-Then set up the following environment variables in docker-compose-dev.yml:
-
-* `SOCIAL_AUTH_LOGIN_REDIRECT_URL=https://<ID>.ngrok.io`
-* `SOCIAL_AUTH_MICROSOFT_GRAPH_REDIRECT_URL=https://<ID>.ngrok.io/complete/microsoft-graph`
-* `TOLA_HOSTNAME=127.0.0.1,localhost,<ID>.ngrok.io`
+- Bugs and Issues [[+]](https://github.com/toladata/TolaActivity/issues/new)
+- New features [[+]](https://github.com/toladata/TolaActivity/issues/new?template=new_features.md)
+- Pull requests [[+]](https://github.com/toladata/TolaActivity/compare/dev-v2?expand=1)
