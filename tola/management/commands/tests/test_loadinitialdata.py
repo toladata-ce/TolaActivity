@@ -2,10 +2,10 @@ import logging
 import sys
 
 from django.contrib.auth.models import Group, User
-from django.core.exceptions import ImproperlyConfigured, ValidationError
+from django.core.exceptions import ImproperlyConfigured
 from django.core.management import call_command
 from django.db import IntegrityError, connection
-from django.test import TestCase, override_settings, tag
+from django.test import TestCase, override_settings
 
 import factories
 from indicators.models import (Level, Frequency, Indicator, PeriodicTarget,
@@ -16,8 +16,7 @@ from workflow.models import (Country, Organization, Sector, ROLE_VIEW_ONLY,
                              ROLE_ORGANIZATION_ADMIN, ROLE_PROGRAM_ADMIN,
                              ROLE_PROGRAM_TEAM, WorkflowLevel1, TolaUser, Group,
                              Sector, Stakeholder, Milestone, WorkflowLevel1,
-                             WorkflowLevel2, WorkflowLevel1Sector, WorkflowTeam,
-                             SiteProfile)
+                             WorkflowLevel2, WorkflowLevel1Sector, WorkflowTeam)
 
 
 class DevNull(object):
@@ -25,7 +24,6 @@ class DevNull(object):
         pass
 
 
-@tag('pkg')
 class LoadInitialDataTest(TestCase):
     def setUp(self):
         self.old_stdout = sys.stdout
@@ -109,7 +107,7 @@ class LoadInitialDataTest(TestCase):
 
         User.objects.all().delete()
 
-        with self.assertRaises(ValidationError):
+        with self.assertRaises(IntegrityError):
             call_command('loadinitialdata', *args, **opts)
 
         self.assertRaises(User.DoesNotExist, User.objects.get,
@@ -213,19 +211,3 @@ class LoadInitialDataTest(TestCase):
         opts = {}
         call_command('loadinitialdata', *args, **opts)
         call_command('loadinitialdata', *args, **opts)
-
-    def test_restore_having_historical_dependent_data(self):
-        organization = factories.Organization(name='Some org')
-        country = factories.Country(country='Brazil', code='BR')
-        factories.SiteProfile(organization=organization, country=country)
-        siteprofile_history_id = SiteProfile.history.get(organization=organization).id
-
-        args = ['--demo']
-        opts = {}
-        call_command('loadinitialdata', *args, **opts)
-
-        args = ['--restore']
-        opts = {}
-        call_command('loadinitialdata', *args, **opts)
-        self.assertRaises(SiteProfile.history.model.DoesNotExist,
-                          SiteProfile.history.get, id=siteprofile_history_id)
