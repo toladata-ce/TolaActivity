@@ -1,5 +1,8 @@
 #!/bin/bash
 
+echo "Collect static files"
+python manage.py collectstatic -v 0 --noinput
+
 echo "Migrate"
 python manage.py migrate
 

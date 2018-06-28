@@ -10,9 +10,9 @@ from .models import (Country, Documentation, WorkflowLevel2,
                      Organization, AdminLevelOne, Office, AdminLevelTwo,
                      AdminLevelThree, AdminLevelFour, WorkflowLevel1, Sector,
                      WorkflowLevel2, WorkflowLevel2Sort, Documentation,
-                     SiteProfile, ProjectType,  Budget,
+                     SiteProfile,  WorkflowLevel3, ProjectType,  Budget,
                      ProfileType, WorkflowTeam, ChecklistItem, Checklist,
-                     Stakeholder, StakeholderType, TolaUser, TolaSites,
+                     Stakeholder, Contact, StakeholderType, TolaUser, TolaSites,
                      FormGuidance, TolaUserProxy, TolaBookmarks, Currency,
                      ApprovalWorkflow, ApprovalType, FundCode, RiskRegister,
                      IssueRegister, CodedField, WorkflowModules, Milestone,
@@ -170,9 +170,9 @@ class TolaBookmarksAdmin(admin.ModelAdmin):
 
 
 class TolaUserAdmin(admin.ModelAdmin):
-    list_display = ('name', 'country', 'organization')
+    list_display = ('name', 'country')
     display = 'Tola User'
-    list_filter = ('country', 'user__is_staff', 'organization')
+    list_filter = ('country', 'user__is_staff',)
     search_fields = ('name', 'country__country', 'title')
 
 
@@ -184,6 +184,13 @@ class FormGuidanceAdmin(admin.ModelAdmin):
 class ProjectTypeAdmin(admin.ModelAdmin):
     list_display = ('name', 'description', 'create_date', 'edit_date')
     display = 'Project Type'
+
+
+class ContactAdmin(admin.ModelAdmin):
+    list_display = ('name', 'country', 'create_date', 'edit_date')
+    display = 'Contact'
+    list_filter = ('create_date','country')
+    search_fields = ('name','country','title','city')
 
 
 class FundCodeAdmin(admin.ModelAdmin):
@@ -242,6 +249,11 @@ class OfficeAdmin(admin.ModelAdmin):
     display = 'Office'
 
 
+class WorkflowLevel3Admin(admin.ModelAdmin):
+    list_display = ('description', 'create_date', 'edit_date')
+    display = 'Workflow Level 3'
+
+
 class ChecklistAdmin(admin.ModelAdmin):
     list_display = ('name', 'country')
     list_filter = ('country', 'workflowlevel2')
@@ -291,6 +303,7 @@ admin.site.register(WorkflowLevel2, SimpleHistoryAdmin)
 admin.site.register(WorkflowLevel2Sort)
 admin.site.register(Documentation, DocumentationAdmin)
 admin.site.register(SiteProfile, SimpleHistoryAdmin)
+admin.site.register(WorkflowLevel3, WorkflowLevel3Admin)
 admin.site.register(ProjectType, ProjectTypeAdmin)
 admin.site.register(Budget)
 admin.site.register(ProfileType)
@@ -298,6 +311,7 @@ admin.site.register(WorkflowTeam, WorkflowTeamAdmin)
 admin.site.register(ChecklistItem, ChecklistItemAdmin)
 admin.site.register(Checklist, ChecklistAdmin)
 admin.site.register(Stakeholder, StakeholderAdmin)
+admin.site.register(Contact, ContactAdmin)
 admin.site.register(StakeholderType)
 admin.site.register(TolaUser, TolaUserAdmin)
 admin.site.register(TolaSites, TolaSitesAdmin)

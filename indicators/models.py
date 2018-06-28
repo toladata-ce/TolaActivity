@@ -8,10 +8,8 @@ from django.utils import timezone
 from simple_history.models import HistoricalRecords
 
 from search.exceptions import ValueNotFoundError
-from search.utils import ElasticsearchIndexer
-from workflow.models import (WorkflowLevel1, Sector, SiteProfile,
-                             WorkflowLevel2, Country, Documentation, TolaUser,
-                             Organization)
+from workflow.models import WorkflowLevel1, Sector, SiteProfile, WorkflowLevel2, Country, Office, Documentation, TolaUser,\
+    Organization
 
 
 class TolaTable(models.Model):
@@ -75,7 +73,7 @@ class IndicatorTypeAdmin(admin.ModelAdmin):
 
 
 class StrategicObjective(models.Model):
-    name = models.CharField(max_length=135, blank=True, help_text="Organizational objective to associate with inidicator")
+    name = models.CharField(max_length=135, blank=True)
     country = models.ForeignKey(Country, null=True, blank=True)
     description = models.TextField(max_length=765, blank=True)
     create_date = models.DateTimeField(null=True, blank=True)
@@ -104,7 +102,7 @@ class StrategicObjectiveAdmin(admin.ModelAdmin):
 
 
 class Objective(models.Model):
-    name = models.CharField(max_length=135, blank=True, help_text="Objective for workflowleve1 to associate with indicator")
+    name = models.CharField(max_length=135, blank=True)
     workflowlevel1 = models.ForeignKey(WorkflowLevel1, null=True, blank=True)
     description = models.TextField(max_length=765, blank=True)
     create_date = models.DateTimeField(null=True, blank=True)
@@ -133,7 +131,7 @@ class ObjectiveAdmin(admin.ModelAdmin):
 
 
 class Level(models.Model):
-    name = models.CharField(max_length=135, blank=True,help_text="Results framework or general indicator collection or label for level")
+    name = models.CharField(max_length=135, blank=True)
     workflowlevel1 = models.ForeignKey(WorkflowLevel1, null=True, blank=True)
     sort = models.IntegerField(default=0)
     country = models.ForeignKey(Country, null=True, blank=True)
@@ -160,17 +158,11 @@ class Level(models.Model):
 
 
 class DisaggregationType(models.Model):
-    AVAILABLE_ORG = 'org'
-    AVAILABLE_WFL1 = 'wfl1'
-    AVAILABILITY_CHOICES = (
-        (AVAILABLE_ORG, 'Organization Level'),
-        (AVAILABLE_WFL1, 'Only for this WFL1')
-    )
-
-    availability = models.CharField(choices=AVAILABILITY_CHOICES, max_length=5, null=True, blank=True)
-    disaggregation_type = models.CharField(max_length=135, blank=True, help_text="Data disaggregation by age,gender,location etc.")
+    disaggregation_type = models.CharField(max_length=135, blank=True)
     description = models.CharField(max_length=765, blank=True)
     organization = models.ForeignKey(Organization, default=0)
+    standard = models.BooleanField(default=False, verbose_name="Standard")
+    default_global = models.BooleanField(default=False)
     create_date = models.DateTimeField(null=True, blank=True)
     edit_date = models.DateTimeField(null=True, blank=True)
 
@@ -186,13 +178,13 @@ class DisaggregationType(models.Model):
 
 
 class DisaggregationTypeAdmin(admin.ModelAdmin):
-    list_display = ('disaggregation_type', 'organization', 'availability', 'description')
-    list_filter = ('organization', 'availability', 'disaggregation_type')
+    list_display = ('disaggregation_type','organization','standard','description')
+    list_filter = ('organization','standard','disaggregation_type')
     display = 'Disaggregation Type'
 
 
 class DisaggregationLabel(models.Model):
-    disaggregation_type = models.ForeignKey(DisaggregationType, on_delete=models.deletion.PROTECT)
+    disaggregation_type = models.ForeignKey(DisaggregationType)
     label = models.CharField(max_length=765, blank=True)
     customsort = models.IntegerField(blank=True, null=True)
     create_date = models.DateTimeField(null=True, blank=True)
@@ -210,8 +202,7 @@ class DisaggregationLabel(models.Model):
 
 
 class DisaggregationValue(models.Model):
-    disaggregation_label = models.ForeignKey(DisaggregationLabel, on_delete=models.deletion.PROTECT)
-    indicator = models.ForeignKey('indicators.Indicator', null=True, blank=True)
+    disaggregation_label = models.ForeignKey(DisaggregationLabel)
     value = models.CharField(max_length=765, blank=True)
     create_date = models.DateTimeField(null=True, blank=True)
     edit_date = models.DateTimeField(null=True, blank=True)
@@ -275,7 +266,7 @@ class ReportingPeriodAdmin(admin.ModelAdmin):
 
 
 class ExternalService(models.Model):
-    name = models.CharField(max_length=255, blank=True, help_text="External Indicator service for template of an Indicator instance")
+    name = models.CharField(max_length=255, blank=True)
     service_url = models.CharField(max_length=765, blank=True)
     feed_url = models.CharField(max_length=765, blank=True)
     default_global = models.BooleanField(default=0)
@@ -326,76 +317,50 @@ class IndicatorManager(models.Manager):
     def get_queryset(self):
         return super(IndicatorManager, self).get_queryset().prefetch_related('workflowlevel1').select_related('sector')
 
+from search.utils import ElasticsearchIndexer
 
 class Indicator(models.Model):
-    CALC_TYPE_NUMERIC = 'numeric'
-    CALC_TYPE_PERCENTAGE = 'percentage'
-
-    CALCULATION_CHOICES = (
-        (CALC_TYPE_NUMERIC, 'Numeric'),
-        (CALC_TYPE_PERCENTAGE, 'Percentage'),
-    )
-
-    DIRECTION_INCREASING = 'increasing'
-    DIRECTION_DECREASING = 'decreasing'
-
-    DIRECTION_CHOICES = (
-        (DIRECTION_INCREASING, 'Increasing'),
-        (DIRECTION_DECREASING, 'Decreasing'),
-    )
-
-    ACTUAL_FORMULA_AVG = 'average'
-    ACTUAL_FORMULA_USER_DEFINED = 'user_defined'
-
-    ACTUAL_FORMULA_CHOICES = (
-        (ACTUAL_FORMULA_AVG, 'Average'),
-        (ACTUAL_FORMULA_USER_DEFINED, 'User defined'),
-    )
-
     indicator_uuid = models.CharField(max_length=255,verbose_name='Indicator UUID', default=uuid.uuid4, unique=True, blank=True)
-    indicator_type = models.ManyToManyField(IndicatorType, blank=True, help_text="If indicator was pulled from a service select one here")
-    level = models.ForeignKey(Level, null=True, blank=True, on_delete=models.SET_NULL, help_text="The results framework level goal, objective etc. for this indicator")
-    objectives = models.ManyToManyField(Objective, blank=True,verbose_name="Objective", related_name="obj_indicator", help_text="Internal stated objective")
-    strategic_objectives = models.ManyToManyField(StrategicObjective, verbose_name="Country Strategic Objective", blank=True, related_name="strat_indicator", help_text="Organizational objectives")
+    indicator_type = models.ManyToManyField(IndicatorType, blank=True)
+    level = models.ForeignKey(Level, null=True, blank=True, on_delete=models.SET_NULL)
+    objectives = models.ManyToManyField(Objective, blank=True,verbose_name="Objective", related_name="obj_indicator")
+    strategic_objectives = models.ManyToManyField(StrategicObjective, verbose_name="Country Strategic Objective", blank=True, related_name="strat_indicator")
     name = models.CharField(max_length=255, null=False)
-    number = models.CharField(max_length=255, null=True, blank=True, help_text="Internal organizational structure for relating to indicator and level")
-    source = models.CharField(max_length=255, null=True, blank=True, help_text="Origin of indicator")
-    definition = models.TextField(null=True, blank=True, help_text="Descriptive text for broader definiton and goal")
-    justification = models.TextField(max_length=500, null=True, blank=True, verbose_name="Rationale or Justification for Indicator", help_text="Rationale or Justification for Indicator")
-    unit_of_measure = models.CharField(max_length=135, null=True, blank=True, verbose_name="Unit of Measure", help_text="How will progress be measured")
-    disaggregation = models.ManyToManyField(DisaggregationType, blank=True, help_text="Predefined units to split total actauls")
-    baseline = models.CharField(max_length=255, null=True, blank=True, help_text="Initial set of data used for comparison or a control")
-    lop_target = models.DecimalField("LOP Target", max_digits=20, decimal_places=2, default=Decimal('0.00'), blank=True, help_text="Life of Program or Project goal for actual")
-    rationale_for_target = models.TextField(max_length=255, null=True, blank=True, help_text="Reasoning for why the target value was set")
-    means_of_verification = models.CharField(max_length=255, null=True, blank=True, verbose_name="Means of Verification / Data Source", help_text="Means of Verification / Data Source")
-    data_collection_method = models.CharField(max_length=255, null=True, blank=True, verbose_name="Data Collection Method", help_text="How was the data collected")
-    data_collection_frequency = models.ForeignKey(Frequency, related_name="data_collection_frequency",null=True, blank=True, verbose_name="Frequency of Data Collection", help_text="How often was the data collected")
-    data_points = models.TextField(max_length=500, null=True, blank=True, verbose_name="Data Points", help_text="")
-    responsible_person = models.CharField(max_length=255, null=True, blank=True, verbose_name="Responsible Person(s) and Team", help_text="Responsible Person(s) and Team")
-    method_of_analysis = models.CharField(max_length=255, null=True, blank=True, verbose_name="Method of Analysis", help_text="Method of Analysis")
-    information_use = models.CharField(max_length=255, null=True, blank=True, verbose_name="Information Use", help_text="Information Use")
-    reporting_frequency = models.ForeignKey(Frequency, null=True, blank=True, verbose_name="Frequency of Reporting", help_text="Frequency of Reporting")
-    quality_assurance = models.TextField(max_length=500, null=True, blank=True, verbose_name="Quality Assurance Measures", help_text="Quality Assurance Measures")
-    data_issues = models.TextField(max_length=500, null=True, blank=True, verbose_name="Data Issues", help_text="Problems with the data quality if any")
-    indicator_changes = models.TextField(max_length=500, null=True, blank=True, verbose_name="Changes to Indicator", help_text="How did the indicator change over time if at all")
-    comments = models.TextField(max_length=255, null=True, blank=True, help_text="")
-    workflowlevel1 = models.ManyToManyField(WorkflowLevel1, help_text="Related workflowlevel1 or project/program etc.")
-    sector = models.ForeignKey(Sector, null=True, blank=True, help_text="Primary related sector or type of work done")
-    sub_sector = models.ManyToManyField(Sector, blank=True, related_name="indicator_sub_sector", help_text="Additiona related sectors or type of work if any")
-    key_performance_indicator = models.BooleanField("Key Performance Indicator?",default=False, help_text="Yes/No is this a key measurement for the overall effort")
-    approved_by = models.ForeignKey(TolaUser, blank=True, null=True, related_name="approving_indicator", help_text="Who approved the indicator")
-    approval_submitted_by = models.ForeignKey(TolaUser, blank=True, null=True, related_name="indicator_submitted_by", help_text="Who requested approval of the indicator")
-    external_service_record = models.ForeignKey(ExternalServiceRecord, verbose_name="External Service ID", blank=True, null=True, help_text="What third party indicator service was this pulled from if any")
-    create_date = models.DateTimeField(null=True, blank=True, help_text="")
-    edit_date = models.DateTimeField(null=True, blank=True, help_text="")
+    number = models.CharField(max_length=255, null=True, blank=True)
+    source = models.CharField(max_length=255, null=True, blank=True)
+    definition = models.TextField(null=True, blank=True)
+    justification = models.TextField(max_length=500, null=True, blank=True, verbose_name="Rationale or Justification for Indicator")
+    unit_of_measure = models.CharField(max_length=135, null=True, blank=True, verbose_name="Unit of Measure")
+    disaggregation = models.ManyToManyField(DisaggregationType, blank=True)
+    baseline = models.CharField(max_length=255, null=True, blank=True)
+    lop_target = models.IntegerField("LOP Target",default=0, blank=True)
+    rationale_for_target = models.TextField(max_length=255, null=True, blank=True)
+    means_of_verification = models.CharField(max_length=255, null=True, blank=True, verbose_name="Means of Verification / Data Source")
+    data_collection_method = models.CharField(max_length=255, null=True, blank=True, verbose_name="Data Collection Method")
+    data_collection_frequency = models.ForeignKey(Frequency, related_name="data_collection_frequency",null=True, blank=True, verbose_name="Frequency of Data Collection")
+    data_points = models.TextField(max_length=500, null=True, blank=True, verbose_name="Data Points")
+    responsible_person = models.CharField(max_length=255, null=True, blank=True, verbose_name="Responsible Person(s) and Team")
+    method_of_analysis = models.CharField(max_length=255, null=True, blank=True, verbose_name="Method of Analysis")
+    information_use = models.CharField(max_length=255, null=True, blank=True, verbose_name="Information Use")
+    reporting_frequency = models.ForeignKey(Frequency, null=True, blank=True, verbose_name="Frequency of Reporting")
+    quality_assurance = models.TextField(max_length=500, null=True, blank=True, verbose_name="Quality Assurance Measures")
+    data_issues = models.TextField(max_length=500, null=True, blank=True, verbose_name="Data Issues")
+    indicator_changes = models.TextField(max_length=500, null=True, blank=True, verbose_name="Changes to Indicator")
+    comments = models.TextField(max_length=255, null=True, blank=True)
+    workflowlevel1 = models.ManyToManyField(WorkflowLevel1)
+    sector = models.ForeignKey(Sector, null=True, blank=True)
+    sub_sector = models.ManyToManyField(Sector, blank=True, related_name="indicator_sub_sector")
+    key_performance_indicator = models.BooleanField("Key Performance Indicator?",default=False)
+    approved_by = models.ForeignKey(TolaUser, blank=True, null=True, related_name="approving_indicator")
+    approval_submitted_by = models.ForeignKey(TolaUser, blank=True, null=True, related_name="indicator_submitted_by")
+    external_service_record = models.ForeignKey(ExternalServiceRecord, verbose_name="External Service ID", blank=True, null=True)
+    create_date = models.DateTimeField(null=True, blank=True)
+    edit_date = models.DateTimeField(null=True, blank=True)
     history = HistoricalRecords()
-    notes = models.TextField(max_length=500, null=True, blank=True, help_text="")
+    notes = models.TextField(max_length=500, null=True, blank=True)
     created_by = models.ForeignKey('auth.User', related_name='indicators', null=True, blank=True, on_delete=models.SET_NULL)
+    #optimize query for class based views etc.
     objects = IndicatorManager()
-    calculation_type = models.CharField(blank=True, null=True, max_length=15, choices=CALCULATION_CHOICES)
-    direction = models.CharField(blank=True, null=True, max_length=15, choices=DIRECTION_CHOICES)
-    actual_formula = models.CharField(blank=True, null=True, max_length=15, choices=ACTUAL_FORMULA_CHOICES)
-    total_actual = models.ForeignKey('CollectedData', related_name='indicator_total_actual', on_delete=models.SET_NULL, verbose_name="Total Actual", blank=True, null=True, help_text="The collected data selected to be used in the actual formula")
 
     class Meta:
         ordering = ('create_date',)
@@ -404,8 +369,8 @@ class Indicator(models.Model):
         )
 
     def save(self, *args, **kwargs):
-        # onsave add create date or update edit date
-        if self.create_date is None:
+        #onsave add create date or update edit date
+        if self.create_date == None:
             self.create_date = timezone.now()
         self.edit_date = timezone.now()
 
@@ -450,6 +415,7 @@ class Indicator(models.Model):
 
     @property
     def levels(self):
+        #return ', '.join([x.name for x in self.level.all()])
         if self.level:
             return self.level.name
         return None
@@ -460,6 +426,7 @@ class Indicator(models.Model):
 
     def __unicode__(self):
         return self.name
+
 
 
 class PeriodicTarget(models.Model):
@@ -486,24 +453,24 @@ class CollectedDataManager(models.Manager):
 
 
 class CollectedData(models.Model):
-    data_uuid = models.CharField(max_length=255,verbose_name='Data UUID', default=uuid.uuid4, unique=True, blank=True, help_text="")
-    periodic_target = models.ForeignKey(PeriodicTarget, null=True, blank=True, help_text="Relate this collection to a periodic target")
+    data_uuid = models.CharField(max_length=255,verbose_name='Data UUID', default=uuid.uuid4, unique=True, blank=True)
+    periodic_target = models.ForeignKey(PeriodicTarget, null=True, blank=True)
     #targeted = models.DecimalField("Targeted", max_digits=20, decimal_places=2, default=Decimal('0.00'))
-    achieved = models.DecimalField("Achieved", max_digits=20, decimal_places=2, default=Decimal('0.00'), help_text="Actual or total for this record")
-    disaggregation_value = models.ManyToManyField(DisaggregationValue, blank=True, help_text="Values for each disaggregated field")
-    description = models.TextField("Remarks/comments", blank=True, null=True, help_text="How was this data collected")
-    indicator = models.ForeignKey(Indicator, help_text="Related indicator for this data")
-    workflowlevel2 = models.ForeignKey(WorkflowLevel2, blank=True, null=True, related_name="i_workflowlevel2", verbose_name="Project Initiation", help_text="Related workflowlevel1 for this data if no indicator")
-    workflowlevel1 = models.ForeignKey(WorkflowLevel1, blank=True, null=True, related_name="i_workflowlevel1", help_text="Related workflowlevel1 if no workflowlevel 2 for this data and no indicator")
-    date_collected = models.DateTimeField(null=True, blank=True, help_text="")
+    achieved = models.DecimalField("Achieved", max_digits=20, decimal_places=2, default=Decimal('0.00'))
+    disaggregation_value = models.ManyToManyField(DisaggregationValue, blank=True)
+    description = models.TextField("Remarks/comments", blank=True, null=True)
+    indicator = models.ForeignKey(Indicator)
+    workflowlevel2 = models.ForeignKey(WorkflowLevel2, blank=True, null=True, related_name="i_workflowlevel2", verbose_name="Project Initiation")
+    workflowlevel1 = models.ForeignKey(WorkflowLevel1, blank=True, null=True, related_name="i_workflowlevel1")
+    date_collected = models.DateTimeField(null=True, blank=True)
     comment = models.TextField("Comment/Explanation", max_length=255, blank=True, null=True)
-    evidence = models.ForeignKey(Documentation, null=True, blank=True, verbose_name="Evidence Document or Link", help_text="Evidence Document or Link")
-    approved_by = models.ForeignKey(TolaUser, blank=True, null=True, verbose_name="Approved By", related_name="approving_data", help_text="Who approved collection")
-    tola_table = models.ForeignKey(TolaTable, blank=True, null=True, help_text="If Track table was used link to it here")
-    update_count_tola_table = models.BooleanField("Would you like to update the achieved total with the row count from TolaTables?",default=False, help_text="Update the unique count from Table if linked when updated")
+    evidence = models.ForeignKey(Documentation, null=True, blank=True, verbose_name="Evidence Document or Link")
+    approved_by = models.ForeignKey(TolaUser, blank=True, null=True, verbose_name="Originated By", related_name="approving_data")
+    tola_table = models.ForeignKey(TolaTable, blank=True, null=True)
+    update_count_tola_table = models.BooleanField("Would you like to update the achieved total with the row count from TolaTables?",default=False)
     create_date = models.DateTimeField(null=True, blank=True)
     edit_date = models.DateTimeField(null=True, blank=True)
-    site = models.ManyToManyField(SiteProfile, blank=True, help_text="Geographic location for data source")
+    site = models.ManyToManyField(SiteProfile, blank=True)
     created_by = models.ForeignKey('auth.User', related_name='collecteddata', null=True, blank=True, on_delete=models.SET_NULL)
     history = HistoricalRecords()
     objects = CollectedDataManager()
